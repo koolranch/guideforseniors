@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mission Control Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #0a0a0a;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow-x: hidden;
+        }
+        
+        .dashboard {
+            min-height: 100vh;
+            display: grid;
+            grid-template-areas: 
+                "header header"
+                "sidebar main";
+            grid-template-rows: 60px 1fr;
+            grid-template-columns: 280px 1fr;
+        }
+        
+        .header {
+            grid-area: header;
+            background: #1a1a1a;
+            border-bottom: 1px solid #333;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            justify-content: space-between;
+        }
+        
+        .logo {
+            font-size: 20px;
+            font-weight: bold;
+            color: #3b82f6;
+        }
+        
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10b981;
+            animation: pulse 2s infinite;
+        }
+        
+        .sidebar {
+            grid-area: sidebar;
+            background: #1a1a1a;
+            border-right: 1px solid #333;
+            padding: 20px;
+        }
+        
+        .main {
+            grid-area: main;
+            padding: 20px;
+            overflow-y: auto;
+        }
+        
+        .nav-item {
+            display: block;
+            color: #9ca3af;
+            text-decoration: none;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 4px;
+            transition: all 0.2s;
+        }
+        
+        .nav-item:hover, .nav-item.active {
+            background: #374151;
+            color: #ffffff;
+        }
+        
+        .section {
+            display: none;
+        }
+        
+        .section.active {
+            display: block;
+        }
+        
+        .card {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+        
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #ffffff;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .metric-card {
+            background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            transition: transform 0.2s;
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-2px);
+            border-color: #3b82f6;
+        }
+        
+        .metric-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #3b82f6;
+            margin-bottom: 8px;
+        }
+        
+        .metric-label {
+            color: #9ca3af;
+            font-size: 14px;
+        }
+        
+        .agent-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .agent-card {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 20px;
+            position: relative;
+        }
+        
+        .agent-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        
+        .agent-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #ffffff;
+        }
+        
+        .agent-business {
+            font-size: 12px;
+            color: #9ca3af;
+            text-transform: uppercase;
+        }
+        
+        .agent-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+        }
+        
+        .status-online {
+            width: 8px;
+            height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        .agent-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+        
+        .stat {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #3b82f6;
+        }
+        
+        .stat-label {
+            font-size: 11px;
+            color: #9ca3af;
+            text-transform: uppercase;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: #333;
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 8px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #10b981, #3b82f6);
+            border-radius: 3px;
+            transition: width 0.5s ease;
+        }
+        
+        .chart-container {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            height: 400px;
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.5;
+                transform: scale(1.1);
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .dashboard {
+                grid-template-areas: 
+                    "header"
+                    "main";
+                grid-template-columns: 1fr;
+                grid-template-rows: 60px 1fr;
+            }
+            
+            .sidebar {
+                display: none;
+            }
+            
+            .metrics-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .activity-feed {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .activity-item {
+            display: flex;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid #333;
+        }
+        
+        .activity-time {
+            color: #9ca3af;
+            font-size: 12px;
+            min-width: 60px;
+        }
+        
+        .activity-text {
+            color: #ffffff;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <header class="header">
+            <div class="logo">⚡ Mission Control</div>
+            <div class="status">
+                <div class="status-dot"></div>
+                <span>All Systems Online</span>
+            </div>
+        </header>
+        
+        <nav class="sidebar">
+            <a href="#overview" class="nav-item active" onclick="showSection('overview')">📊 Overview</a>
+            <a href="#agents" class="nav-item" onclick="showSection('agents')">🤖 Agents</a>
+            <a href="#analytics" class="nav-item" onclick="showSection('analytics')">📈 Analytics</a>
+            <a href="#tasks" class="nav-item" onclick="showSection('tasks')">📋 Tasks</a>
+            <a href="#activity" class="nav-item" onclick="showSection('activity')">🔄 Activity</a>
+        </nav>
+        
+        <main class="main">
+            <!-- Overview Section -->
+            <div id="overview" class="section active">
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-value">3</div>
+                        <div class="metric-label">Active Agents</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">94.2%</div>
+                        <div class="metric-label">Efficiency</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">847</div>
+                        <div class="metric-label">Tasks Completed</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value">$58.4K</div>
+                        <div class="metric-label">Revenue Generated</div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h2 class="card-title">Performance Overview</h2>
+                    <div class="chart-container">
+                        <canvas id="performanceChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Agents Section -->
+            <div id="agents" class="section">
+                <div class="agent-grid">
+                    <div class="agent-card">
+                        <div class="agent-header">
+                            <div>
+                                <div class="agent-name">Scout</div>
+                                <div class="agent-business">GFS</div>
+                            </div>
+                            <div class="agent-status">
+                                <div class="status-online"></div>
+                                <span>Online</span>
+                            </div>
+                        </div>
+                        <div class="agent-stats">
+                            <div class="stat">
+                                <div class="stat-value">198</div>
+                                <div class="stat-label">Tasks</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-value">96.1%</div>
+                                <div class="stat-label">Efficiency</div>
+                            </div>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 96.1%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="agent-card">
+                        <div class="agent-header">
+                            <div>
+                                <div class="agent-name">Writer</div>
+                                <div class="agent-business">FEE</div>
+                            </div>
+                            <div class="agent-status">
+                                <div class="status-online"></div>
+                                <span>Online</span>
+                            </div>
+                        </div>
+                        <div class="agent-stats">
+                            <div class="stat">
+                                <div class="stat-value">143</div>
+                                <div class="stat-label">Tasks</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-value">89.7%</div>
+                                <div class="stat-label">Efficiency</div>
+                            </div>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 89.7%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="agent-card">
+                        <div class="agent-header">
+                            <div>
+                                <div class="agent-name">Optimizer</div>
+                                <div class="agent-business">CLS</div>
+                            </div>
+                            <div class="agent-status">
+                                <div class="status-online"></div>
+                                <span>Online</span>
+                            </div>
+                        </div>
+                        <div class="agent-stats">
+                            <div class="stat">
+                                <div class="stat-value">156</div>
+                                <div class="stat-label">Tasks</div>
+                            </div>
+                            <div class="stat">
+                                <div class="stat-value">94.2%</div>
+                                <div class="stat-label">Efficiency</div>
+                            </div>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: 94.2%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Analytics Section -->
+            <div id="analytics" class="section">
+                <div class="card">
+                    <h2 class="card-title">Business Performance</h2>
+                    <div class="chart-container">
+                        <canvas id="analyticsChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h2 class="card-title">Revenue Trends</h2>
+                    <div class="chart-container">
+                        <canvas id="revenueChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Tasks Section -->
+            <div id="tasks" class="section">
+                <div class="card">
+                    <h2 class="card-title">Task Distribution</h2>
+                    <div class="chart-container">
+                        <canvas id="tasksChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Activity Section -->
+            <div id="activity" class="section">
+                <div class="card">
+                    <h2 class="card-title">Live Activity Feed</h2>
+                    <div class="activity-feed">
+                        <div class="activity-item">
+                            <div class="activity-time">18:50</div>
+                            <div class="activity-text">Scout completed facility research for Cleveland area</div>
+                        </div>
+                        <div class="activity-item">
+                            <div class="activity-time">18:48</div>
+                            <div class="activity-text">Writer published new content: "Memory Care Options Guide"</div>
+                        </div>
+                        <div class="activity-item">
+                            <div class="activity-time">18:45</div>
+                            <div class="activity-text">Optimizer improved SEO rankings for 5 keywords</div>
+                        </div>
+                        <div class="activity-item">
+                            <div class="activity-time">18:42</div>
+                            <div class="activity-text">Mission Control dashboard deployed successfully</div>
+                        </div>
+                        <div class="activity-item">
+                            <div class="activity-time">18:40</div>
+                            <div class="activity-text">Scout identified 3 new facility partnerships</div>
+                        </div>
+                        <div class="activity-item">
+                            <div class="activity-time">18:38</div>
+                            <div class="activity-text">Writer content received 245 page views</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function showSection(sectionId) {
+            // Hide all sections
+            document.querySelectorAll('.section').forEach(section => {
+                section.classList.remove('active');
+            });
+            
+            // Remove active from nav items
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            // Show selected section
+            document.getElementById(sectionId).classList.add('active');
+            
+            // Add active to clicked nav item
+            event.target.classList.add('active');
+            
+            // Initialize charts when sections are shown
+            if (sectionId === 'overview') {
+                initPerformanceChart();
+            } else if (sectionId === 'analytics') {
+                initAnalyticsChart();
+                initRevenueChart();
+            } else if (sectionId === 'tasks') {
+                initTasksChart();
+            }
+        }
+        
+        function initPerformanceChart() {
+            const ctx = document.getElementById('performanceChart');
+            if (ctx.chart) return; // Already initialized
+            
+            ctx.chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    datasets: [{
+                        label: 'Efficiency %',
+                        data: [92, 94, 91, 96, 93, 95, 94],
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        tension: 0.4
+                    }, {
+                        label: 'Tasks Completed',
+                        data: [45, 52, 48, 61, 55, 67, 58],
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#333' },
+                            ticks: { color: '#9ca3af' }
+                        },
+                        x: {
+                            grid: { color: '#333' },
+                            ticks: { color: '#9ca3af' }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: { color: '#ffffff' }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function initAnalyticsChart() {
+            const ctx = document.getElementById('analyticsChart');
+            if (ctx.chart) return;
+            
+            ctx.chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['GFS', 'CLS', 'FEE'],
+                    datasets: [{
+                        label: 'Performance Score',
+                        data: [96.1, 94.2, 89.7],
+                        backgroundColor: ['#10b981', '#3b82f6', '#f59e0b'],
+                        borderColor: ['#10b981', '#3b82f6', '#f59e0b'],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#333' },
+                            ticks: { color: '#9ca3af' }
+                        },
+                        x: {
+                            grid: { color: '#333' },
+                            ticks: { color: '#9ca3af' }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: { color: '#ffffff' }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function initRevenueChart() {
+            const ctx = document.getElementById('revenueChart');
+            if (ctx.chart) return;
+            
+            ctx.chart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['GFS', 'CLS', 'FEE'],
+                    datasets: [{
+                        data: [28400, 18700, 11300],
+                        backgroundColor: ['#10b981', '#3b82f6', '#f59e0b'],
+                        borderColor: '#1a1a1a',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#ffffff' }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function initTasksChart() {
+            const ctx = document.getElementById('tasksChart');
+            if (ctx.chart) return;
+            
+            ctx.chart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: ['Completed', 'In Progress', 'Pending', 'Failed'],
+                    datasets: [{
+                        data: [456, 31, 8, 2],
+                        backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'],
+                        borderColor: '#1a1a1a',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#ffffff' }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // Initialize performance chart on load
+        document.addEventListener('DOMContentLoaded', function() {
+            initPerformanceChart();
+            
+            // Update metrics every 30 seconds
+            setInterval(function() {
+                const efficiency = document.querySelector('.metric-card:nth-child(2) .metric-value');
+                const tasks = document.querySelector('.metric-card:nth-child(3) .metric-value');
+                const revenue = document.querySelector('.metric-card:nth-child(4) .metric-value');
+                
+                // Simulate real-time updates
+                const currentEff = parseFloat(efficiency.textContent);
+                efficiency.textContent = (currentEff + (Math.random() - 0.5) * 2).toFixed(1) + '%';
+                
+                const currentTasks = parseInt(tasks.textContent);
+                tasks.textContent = currentTasks + Math.floor(Math.random() * 3);
+                
+                const currentRev = parseFloat(revenue.textContent.replace('$', '').replace('K', ''));
+                revenue.textContent = '$' + (currentRev + Math.random() * 0.5).toFixed(1) + 'K';
+            }, 30000);
+        });
+    </script>
+</body>
+</html>
